@@ -24,21 +24,29 @@ Scene: Flow Field Particles with Trails
 - Slow parameter drift over time
 
 ## Weather Reactivity (Phase 2)
+- Provider: Open-Meteo (no API key required).
 - Device connects to local Wi-Fi as a client.
-- Fetch weather every 10 minutes (configurable).
+- Fetch cadence: no more than once every 10 minutes.
 - Weather affects *parameters*, not explicit text/graphics.
-  Examples:
-  - Temperature -> palette warmth (cool/warm mapping)
-  - Cloud cover -> trail persistence / density
-  - Wind speed -> turbulence/field strength
-  - Precip chance -> occasional “storm reset” or spawn bursts
+- Open-Meteo fields requested (exact):
+  - `temperature_2m`
+  - `windspeed_10m`
+  - `cloudcover`
+  - `precipitation_probability`
+- Visual mapping:
+  - `temperature_2m` -> palette warmth (cool to warm shift)
+  - `cloudcover` -> trail persistence / density
+  - `windspeed_10m` -> turbulence / flow strength
+  - `precipitation_probability` -> occasional burst/reset events
 
 ## Networking Rules
 - Networking MUST be time-budgeted:
-  - Each weather fetch has a hard overall time limit (e.g., 3–5 seconds).
+  - Each fetch has a hard overall time limit (e.g., 3–5 seconds).
+  - Each step has explicit timeouts (connect/read/parse).
   - If a step times out, abort and retry later.
 - Networking MUST be structured as a state machine:
   - Never do a long blocking fetch in a single frame.
+- Rendering must continue uninterrupted if the network fails.
 - Cache last known weather and continue visuals if offline.
 
 ## Code Architecture
@@ -91,4 +99,3 @@ Panel assumptions:
 - Device reliably connects to Wi-Fi on boot
 - Weather updates modify visual parameters without freezing animation
 - If Wi-Fi is unavailable, visuals continue and system retries gracefully
-

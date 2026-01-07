@@ -1,10 +1,114 @@
 #include <Arduino.h>
 #include <Adafruit_Protomatter.h>
+#include <WiFiNINA.h>
 
 #include "BoardConfig.h"
+#include "Engine.h"
+#include "scenes/FlowFieldScene.h"
+#include "scenes/TestScene.h"
+#include "secrets.h"
 
-constexpr uint8_t kMatrixHeight = 32;
 constexpr uint32_t kFrameIntervalMs = 33; // ~30 FPS
+
+enum class WiFiState : uint8_t {
+  kIdle,
+  kConnecting,
+  kConnected,
+  kCooldown
+};
+
+constexpr uint32_t kWiFiConnectTimeoutMs = 8000;
+constexpr uint32_t kWiFiCooldownMs = 5000;
+constexpr uint32_t kWiFiStatusIntervalMs = 5000;
+
+static WiFiState wifiState = WiFiState::kIdle;
+static uint32_t wifiStateStartMs = 0;
+static uint32_t wifiNextAttemptMs = 0;
+static uint32_t wifiLastStatusMs = 0;
+
+static Engine engine(matrix, kFrameIntervalMs);
+static FlowFieldScene flowFieldScene;
+
+static void printTimestamp() {
+  Serial.print("[");
+  Serial.print(millis());
+  Serial.print("] ");
+}
+
+static void printWiFiStatus() {
+  const uint8_t status = WiFi.status();
+  printTimestamp();
+  Serial.print("WiFi: status=");
+  Serial.print((int)status);
+  if (status == WL_CONNECTED) {
+    Serial.print(" IP=");
+    Serial.println(WiFi.localIP());
+  } else {
+    Serial.println();
+  }
+}
+
+static void startWiFiConnect(uint32_t nowMs) {
+  printTimestamp();
+  Serial.println("WiFi: begin connect (pre)");
+  Serial.println("WiFi: begin connect");
+  WiFi.begin(WIFI_SSID, WIFI_PASS);
+  printTimestamp();
+  Serial.println("WiFi: begin connect (post)");
+  wifiState = WiFiState::kConnecting;
+  wifiStateStartMs = nowMs;
+  wifiLastStatusMs = nowMs;
+}
+
+static void tickWiFi(uint32_t nowMs) {
+  if ((uint32_t)(nowMs - wifiLastStatusMs) >= kWiFiStatusIntervalMs) {
+    printWiFiStatus();
+    wifiLastStatusMs = nowMs;
+  }
+
+  if (wifiState == WiFiState::kConnected) {
+    if (WiFi.status() != WL_CONNECTED) {
+      printTimestamp();
+      Serial.println("WiFi: disconnected");
+      wifiState = WiFiState::kCooldown;
+      wifiStateStartMs = nowMs;
+      wifiNextAttemptMs = nowMs + kWiFiCooldownMs;
+    }
+    return;
+  }
+
+  if (wifiState == WiFiState::kConnecting) {
+    if (WiFi.status() == WL_CONNECTED) {
+      printTimestamp();
+      Serial.print("WiFi: connected, IP=");
+      Serial.println(WiFi.localIP());
+      wifiState = WiFiState::kConnected;
+      return;
+    }
+    if ((uint32_t)(nowMs - wifiStateStartMs) > kWiFiConnectTimeoutMs) {
+      printTimestamp();
+      Serial.println("WiFi: connect timeout");
+      WiFi.disconnect();
+      wifiState = WiFiState::kCooldown;
+      wifiStateStartMs = nowMs;
+      wifiNextAttemptMs = nowMs + kWiFiCooldownMs;
+    }
+    return;
+  }
+
+  if (wifiState == WiFiState::kCooldown) {
+    if ((int32_t)(nowMs - wifiNextAttemptMs) >= 0) {
+      wifiState = WiFiState::kIdle;
+    }
+    return;
+  }
+
+  if (wifiState == WiFiState::kIdle) {
+    if ((int32_t)(nowMs - wifiNextAttemptMs) >= 0) {
+      startWiFiConnect(nowMs);
+    }
+  }
+}
 
 static void drawTestPattern() {
   matrix.fillScreen(0);
@@ -51,32 +155,15 @@ void setup() {
   delay(1200);
   matrix.fillScreen(0);
   matrix.show();
+
+  engine.setScene(&flowFieldScene);
+  engine.begin();
+
+  startWiFiConnect(millis());
 }
 
 void loop() {
-  static uint32_t lastFrameMs = 0;
-  static int8_t dx = 1;
-  static int8_t dy = 1;
-  static int16_t x = 0;
-  static int16_t y = 0;
-
   const uint32_t nowMs = millis();
-  if ((uint32_t)(nowMs - lastFrameMs) < kFrameIntervalMs) {
-    return;
-  }
-  lastFrameMs = nowMs;
-
-  matrix.fillScreen(0);
-  matrix.drawPixel(x, y, matrix.color565(0, 200, 40));
-  matrix.show();
-
-  x += dx;
-  y += dy;
-
-  if (x <= 0 || x >= (kMatrixWidth - 1)) {
-    dx = -dx;
-  }
-  if (y <= 0 || y >= (kMatrixHeight - 1)) {
-    dy = -dy;
-  }
+  tickWiFi(nowMs);
+  engine.tick(nowMs);
 }

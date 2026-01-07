@@ -10,6 +10,7 @@ constexpr uint8_t kMatrixLatchPin = 15;
 constexpr uint8_t kMatrixOePin = 16;
 
 constexpr uint16_t kMatrixWidth = 64;
+constexpr uint8_t kMatrixHeight = 32;
 constexpr uint8_t kMatrixBitplanes = 4;
 constexpr uint8_t kMatrixChains = 1;
 constexpr uint8_t kMatrixAddrLines = 4; // A-D for 32px tall panels
