@@ -48,6 +48,26 @@ uint16_t clampU16(int value, int min_value, int max_value) {
   }
   return (uint16_t)value;
 }
+
+float smoothstep(float t) {
+  if (t < 0.0f) {
+    t = 0.0f;
+  } else if (t > 1.0f) {
+    t = 1.0f;
+  }
+  return t * t * (3.0f - 2.0f * t);
+}
+
+float smoothstep(float edge0, float edge1, float x) {
+  if (edge1 <= edge0) {
+    return (x >= edge1) ? 1.0f : 0.0f;
+  }
+  return smoothstep((x - edge0) / (edge1 - edge0));
+}
+
+float lerp(float a, float b, float t) {
+  return a + (b - a) * t;
+}
 } // namespace
 
 FlowFieldScene::FlowFieldScene()
@@ -66,10 +86,16 @@ FlowFieldScene::FlowFieldScene()
       precip_accum_ms_(0),
       precip_burst_interval_ms_(0),
       precip_burst_pending_(false),
+      green_allow_q8_(255),
+      red_takeover_q8_(0),
+      cold_green_scale_q8_(255),
+      allowed_indices_{},
+      allowed_count_(16),
       last_temp_warm_(0xFF),
       last_cloud_(0xFF),
       last_wind_(0xFF),
       last_precip_(0xFF),
+      last_temp_log_q_(-32768),
       field_{},
       particles_{},
       weather_{} {}
@@ -117,10 +143,18 @@ void FlowFieldScene::begin(Adafruit_Protomatter &matrix) {
   precip_accum_ms_ = 0;
   precip_burst_interval_ms_ = 0;
   precip_burst_pending_ = false;
+  green_allow_q8_ = 255;
+  red_takeover_q8_ = 0;
+  cold_green_scale_q8_ = 255;
+  allowed_count_ = 16;
+  for (uint8_t i = 0; i < 16; ++i) {
+    allowed_indices_[i] = i;
+  }
   last_temp_warm_ = 0xFF;
   last_cloud_ = 0xFF;
   last_wind_ = 0xFF;
   last_precip_ = 0xFF;
+  last_temp_log_q_ = -32768;
 }
 
 void FlowFieldScene::update(uint32_t dt_ms) {
@@ -224,9 +258,11 @@ void FlowFieldScene::render(Adafruit_Protomatter &matrix) {
     const int16_t x = (int16_t)(particles_[i].x_fp >> kFixedShift);
     const int16_t y = (int16_t)(particles_[i].y_fp >> kFixedShift);
     if ((uint16_t)x < kMatrixWidth && (uint16_t)y < kMatrixHeight) {
-      const uint8_t idx =
-          (uint8_t)(((particles_[i].age >> 4) ^ (x + y)) + palette_offset_) &
-          0x0F;
+      const uint8_t base =
+          (uint8_t)(((particles_[i].age >> 4) ^ (x + y)) + palette_offset_);
+      const uint8_t count = (allowed_count_ == 0) ? 1 : allowed_count_;
+      const uint8_t mapped = allowed_indices_[base % count];
+      const uint8_t idx = mapped & 0x0F;
       buffer[(y * kMatrixWidth) + x] = palette_[idx];
     }
   }
@@ -241,9 +277,67 @@ void FlowFieldScene::setWeather(const WeatherParams &params) {
 
   int temp_q = (int)(temp_f + (temp_f >= 0.0f ? 0.5f : -0.5f));
   temp_q = (int)clampU16(temp_q, 0, 100);
-  const int temp_clamped = (temp_q < 0) ? 0 : (temp_q > 90 ? 90 : temp_q);
-  const uint8_t temp_warm =
-      (uint8_t)((temp_clamped * 255) / 90);
+
+  float warmth = 0.0f;
+  if (temp_f <= 20.0f) {
+    const float t = smoothstep((temp_f - 0.0f) / 20.0f);
+    warmth = lerp(0.00f, 0.12f, t);
+  } else if (temp_f <= 40.0f) {
+    const float t = smoothstep((temp_f - 20.0f) / 20.0f);
+    warmth = lerp(0.12f, 0.32f, t);
+  } else if (temp_f <= 65.0f) {
+    const float t = smoothstep((temp_f - 40.0f) / 25.0f);
+    warmth = lerp(0.32f, 0.72f, t);
+  } else if (temp_f <= 85.0f) {
+    const float t = smoothstep((temp_f - 65.0f) / 20.0f);
+    warmth = lerp(0.72f, 0.92f, t);
+  } else {
+    const float t = smoothstep((temp_f - 85.0f) / 15.0f);
+    warmth = lerp(0.92f, 1.00f, t);
+  }
+
+  if (warmth < 0.0f) {
+    warmth = 0.0f;
+  } else if (warmth > 1.0f) {
+    warmth = 1.0f;
+  }
+  const uint8_t temp_warm = (uint8_t)(warmth * 255.0f + 0.5f);
+  const float green_allow = smoothstep(50.0f, 65.0f, temp_f);
+  const float rainbow =
+      smoothstep(65.0f, 70.0f, temp_f) *
+      (1.0f - smoothstep(80.0f, 85.0f, temp_f));
+  const float red_takeover = smoothstep(80.0f, 92.0f, temp_f);
+  const float cold_green_scale = lerp(0.55f, 1.0f, rainbow);
+  green_allow_q8_ = (uint8_t)(green_allow * 255.0f + 0.5f);
+  red_takeover_q8_ = (uint8_t)(red_takeover * 255.0f + 0.5f);
+  cold_green_scale_q8_ = (uint8_t)(cold_green_scale * 255.0f + 0.5f);
+
+  uint8_t allowed[16];
+  uint8_t allowed_count = 0;
+  const uint8_t cold_safe[] = {0, 1, 2, 15, 14, 13};
+  for (uint8_t i = 0; i < sizeof(cold_safe); ++i) {
+    allowed[allowed_count++] = cold_safe[i];
+  }
+  if (rainbow >= 0.2f) {
+    allowed[allowed_count++] = 3;
+    allowed[allowed_count++] = 4;
+  }
+  if (green_allow > 0.2f) {
+    const uint8_t greens[] = {5, 6, 7, 8, 9};
+    for (uint8_t i = 0; i < sizeof(greens); ++i) {
+      allowed[allowed_count++] = greens[i];
+    }
+  }
+  if (red_takeover > 0.2f) {
+    const uint8_t hot[] = {10, 11, 12};
+    for (uint8_t i = 0; i < sizeof(hot); ++i) {
+      allowed[allowed_count++] = hot[i];
+    }
+  }
+  allowed_count_ = (allowed_count == 0) ? 1 : allowed_count;
+  for (uint8_t i = 0; i < allowed_count_; ++i) {
+    allowed_indices_[i] = allowed[i];
+  }
 
   int wind_q = (int)(wind_mph + (wind_mph >= 0.0f ? 0.5f : -0.5f));
   wind_q = (int)clampU16(wind_q, 0, 40);
@@ -283,6 +377,32 @@ void FlowFieldScene::setWeather(const WeatherParams &params) {
     precip_accum_ms_ = 0;
     last_precip_ = precip;
   }
+
+  if (params.valid && temp_q != last_temp_log_q_) {
+    Serial.print("WeatherMap: temp_f=");
+    Serial.print(temp_f, 1);
+    Serial.print(" warmth=");
+    Serial.print(warmth, 3);
+    Serial.print(" rainbow=");
+    Serial.print(rainbow, 3);
+    Serial.print(" greenAllow=");
+    Serial.print(green_allow, 3);
+    Serial.print(" redTakeover=");
+    Serial.print(red_takeover, 3);
+    Serial.print(" coldGreen=");
+    Serial.print(cold_green_scale, 3);
+    Serial.print(" allowedCount=");
+    Serial.print(allowed_count_);
+    Serial.print(" idxList=");
+    for (uint8_t i = 0; i < allowed_count_; ++i) {
+      if (i > 0) {
+        Serial.print(",");
+      }
+      Serial.print(allowed_indices_[i]);
+    }
+    Serial.println();
+    last_temp_log_q_ = (int16_t)temp_q;
+  }
 }
 
 void FlowFieldScene::updatePalette(uint8_t warmth) {
@@ -293,8 +413,9 @@ void FlowFieldScene::updatePalette(uint8_t warmth) {
 
   for (uint8_t i = 0; i < 16; ++i) {
     const int r = (int)kBasePaletteRgb[i][0] + red_bias;
-    const int g = (int)kBasePaletteRgb[i][1] + green_bias;
+    int g = (int)kBasePaletteRgb[i][1] + green_bias;
     const int b = (int)kBasePaletteRgb[i][2] + blue_bias;
+    g = (int)(((int32_t)g * (int32_t)cold_green_scale_q8_) / 255);
     palette_[i] = matrix.color565(clampU8(r), clampU8(g), clampU8(b));
   }
 }

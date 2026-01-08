@@ -2,12 +2,26 @@
 #include <Adafruit_Protomatter.h>
 #include <WiFiNINA.h>
 
+#include "AppConfig.h"
 #include "BoardConfig.h"
 #include "Engine.h"
 #include "net/WeatherClient.h"
 #include "scenes/FlowFieldScene.h"
 #include "scenes/TestScene.h"
 #include "secrets.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+char *sbrk(int i);
+#ifdef __cplusplus
+}
+#endif
+
+static int freeRam() {
+  char stack_dummy = 0;
+  return &stack_dummy - sbrk(0);
+}
 
 constexpr uint32_t kFrameIntervalMs = 33; // ~30 FPS
 constexpr bool kWiFiSmokeTest = false;
@@ -29,6 +43,7 @@ static uint32_t wifiStateStartMs = 0;
 static uint32_t wifiNextAttemptMs = 0;
 static uint32_t wifiLastStatusMs = 0;
 static uint32_t wifiSmokeLogMs = 0;
+static uint32_t heapLogLastMs = 0;
 
 static Engine engine(matrix, kFrameIntervalMs);
 static FlowFieldScene flowFieldScene;
@@ -41,6 +56,7 @@ static void printTimestamp() {
 }
 
 static void printWiFiStatus() {
+#if APP_LOG_WIFI
   const uint8_t status = WiFi.status();
   printTimestamp();
   Serial.print("WiFi: status=");
@@ -51,15 +67,15 @@ static void printWiFiStatus() {
   } else {
     Serial.println();
   }
+#endif
 }
 
 static void startWiFiConnect(uint32_t nowMs) {
+#if APP_LOG_WIFI
   printTimestamp();
-  Serial.println("WiFi: begin connect (pre)");
   Serial.println("WiFi: begin connect");
+#endif
   WiFi.begin(WIFI_SSID, WIFI_PASS);
-  printTimestamp();
-  Serial.println("WiFi: begin connect (post)");
   wifiState = WiFiState::kConnecting;
   wifiStateStartMs = nowMs;
   wifiLastStatusMs = nowMs;
@@ -73,8 +89,10 @@ static void tickWiFi(uint32_t nowMs) {
 
   if (wifiState == WiFiState::kConnected) {
     if (WiFi.status() != WL_CONNECTED) {
+#if APP_LOG_WIFI
       printTimestamp();
       Serial.println("WiFi: disconnected");
+#endif
       wifiState = WiFiState::kCooldown;
       wifiStateStartMs = nowMs;
       wifiNextAttemptMs = nowMs + kWiFiCooldownMs;
@@ -84,15 +102,19 @@ static void tickWiFi(uint32_t nowMs) {
 
   if (wifiState == WiFiState::kConnecting) {
     if (WiFi.status() == WL_CONNECTED) {
+#if APP_LOG_WIFI
       printTimestamp();
       Serial.print("WiFi: connected, IP=");
       Serial.println(WiFi.localIP());
+#endif
       wifiState = WiFiState::kConnected;
       return;
     }
     if ((uint32_t)(nowMs - wifiStateStartMs) > kWiFiConnectTimeoutMs) {
+#if APP_LOG_WIFI
       printTimestamp();
       Serial.println("WiFi: connect timeout");
+#endif
       WiFi.disconnect();
       wifiState = WiFiState::kCooldown;
       wifiStateStartMs = nowMs;
@@ -174,6 +196,15 @@ void loop() {
   const uint32_t nowMs = millis();
   tickWiFi(nowMs);
   weatherClient.tick(nowMs);
+
+#if APP_LOG_HEAP
+  if ((uint32_t)(nowMs - heapLogLastMs) >= APP_HEAP_LOG_INTERVAL_MS) {
+    printTimestamp();
+    Serial.print("System: free RAM = ");
+    Serial.println(freeRam());
+    heapLogLastMs = nowMs;
+  }
+#endif
 
   if (kWiFiSmokeTest) {
     if ((uint32_t)(nowMs - wifiSmokeLogMs) >= kWiFiSmokeLogIntervalMs) {

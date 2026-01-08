@@ -65,10 +65,16 @@ private:
   uint32_t precip_accum_ms_;
   uint16_t precip_burst_interval_ms_;
   bool precip_burst_pending_;
+  uint8_t green_allow_q8_;
+  uint8_t red_takeover_q8_;
+  uint8_t cold_green_scale_q8_;
+  uint8_t allowed_indices_[16];
+  uint8_t allowed_count_;
   uint8_t last_temp_warm_;
   uint8_t last_cloud_;
   uint8_t last_wind_;
   uint8_t last_precip_;
+  int16_t last_temp_log_q_;
 
   uint8_t field_[kFieldSize];
   Particle particles_[kParticleCount];

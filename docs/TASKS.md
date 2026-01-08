@@ -63,10 +63,10 @@ Goal: fetch data without freezing.
 
 ## Phase 6 – Weather Mapping (Ambient, Non-Literal)
 Goal: environment affects “mood” not “data display”.
-- [ ] Map temperature -> palette warmth.
-- [ ] Map cloud cover -> trail persistence / density.
-- [ ] Map wind speed -> turbulence.
-- [ ] Map precip chance -> occasional burst/reset.
+- [x] Map temperature -> palette warmth.
+- [x] Map cloud cover -> trail persistence / density.
+- [x] Map wind speed -> turbulence.
+- [x] Map precip chance -> occasional burst/reset.
 
 ## Phase 7 – Long-Run Stability
 - [ ] Run for 4+ hours.

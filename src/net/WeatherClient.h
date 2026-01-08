@@ -3,12 +3,14 @@
 #include <Arduino.h>
 #include <WiFiNINA.h>
 
+#include "AppConfig.h"
+
 #ifndef WEATHER_LOG_ENABLED
-#define WEATHER_LOG_ENABLED 1
+#define WEATHER_LOG_ENABLED APP_LOG_WEATHER
 #endif
 
 #ifndef WEATHER_LOG_VERBOSE
-#define WEATHER_LOG_VERBOSE 0
+#define WEATHER_LOG_VERBOSE APP_LOG_WEATHER_VERBOSE
 #endif
 
 class WeatherClient {
