@@ -29,7 +29,7 @@ private:
   static constexpr uint8_t kFieldCols = 16;
   static constexpr uint8_t kFieldRows = 8;
   static constexpr uint16_t kFieldSize = kFieldCols * kFieldRows;
-  static constexpr uint16_t kParticleCount = 240;
+  static constexpr uint16_t kParticleCount = 512;
   static constexpr uint8_t kFixedShift = 8;
   static constexpr int32_t kFixedOne = 1 << kFixedShift;
   static constexpr int16_t kParticleSpeed = 40; // pixels per second

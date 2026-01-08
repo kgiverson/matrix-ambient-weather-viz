@@ -222,6 +222,13 @@ void FlowFieldScene::update(uint32_t dt_ms) {
     }
 
     p.age++;
+
+    // Respawn old particles to prevent clumping in sinkholes
+    if (p.age > 240 + (i & 0x0F)) {
+      p.x_fp = (int32_t)((nextRand(rng_) % kMatrixWidth) << kFixedShift);
+      p.y_fp = (int32_t)((nextRand(rng_) % kMatrixHeight) << kFixedShift);
+      p.age = (uint8_t)(nextRand(rng_) & 0x3F); // Start young
+    }
   }
 }
 
@@ -260,8 +267,8 @@ void FlowFieldScene::render(Adafruit_Protomatter &matrix) {
     const int16_t x = (int16_t)(particles_[i].x_fp >> kFixedShift);
     const int16_t y = (int16_t)(particles_[i].y_fp >> kFixedShift);
     if ((uint16_t)x < kMatrixWidth && (uint16_t)y < kMatrixHeight) {
-      const uint8_t base =
-          (uint8_t)(((particles_[i].age >> 4) ^ (x + y)) + palette_offset_);
+      // Stable color based on particle index to prevent twinkling
+      const uint8_t base = (uint8_t)((i % 16) + palette_offset_);
       const uint8_t count = (allowed_count_ == 0) ? 1 : allowed_count_;
       const uint8_t mapped = allowed_indices_[base % count];
       const uint8_t idx = mapped & 0x0F;
