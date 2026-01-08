@@ -135,6 +135,8 @@ void FlowFieldScene::begin(Adafruit_Protomatter &matrix) {
     particles_[i].pad = 0;
   }
 
+  memset(sim_buffer_, 0, sizeof(sim_buffer_));
+
   weather_.valid = false;
   field_update_interval_ms_ = kFieldUpdateIntervalMs;
   fade_factor_ = kFadeFactor;
@@ -231,7 +233,7 @@ void FlowFieldScene::render(Adafruit_Protomatter &matrix) {
     first_render_ = false;
   }
 
-  uint16_t *buffer = matrix.getBuffer();
+  uint16_t *buffer = sim_buffer_;
   const uint32_t count = (uint32_t)kMatrixWidth * kMatrixHeight;
   if (precip_burst_pending_) {
     for (uint32_t i = 0; i < count; ++i) {
@@ -266,6 +268,9 @@ void FlowFieldScene::render(Adafruit_Protomatter &matrix) {
       buffer[(y * kMatrixWidth) + x] = palette_[idx];
     }
   }
+
+  uint16_t *matrix_buffer = matrix.getBuffer();
+  memcpy(matrix_buffer, sim_buffer_, sizeof(sim_buffer_));
 }
 
 void FlowFieldScene::setWeather(const WeatherParams &params) {

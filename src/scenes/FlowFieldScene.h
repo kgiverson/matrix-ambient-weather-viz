@@ -78,5 +78,6 @@ private:
 
   uint8_t field_[kFieldSize];
   Particle particles_[kParticleCount];
+  uint16_t sim_buffer_[64 * 32];
   WeatherParams weather_;
 };
