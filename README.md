@@ -16,3 +16,6 @@ pio device monitor -b 115200
 Configuration
 - Wi-Fi credentials and location: `include/secrets.h`
 - Matrix pin mapping: `include/BoardConfig.h`
+
+Production Cleanup
+- See `docs/TASKS.md` for the post-phase cleanup checklist before long-run deployment.

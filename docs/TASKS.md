@@ -51,15 +51,15 @@ Goal: non-repeating motion.
 
 ## Phase 5 – WeatherClient (Scheduled, Time-Budgeted)
 Goal: fetch data without freezing.
-- [ ] Implement WeatherClient as a state machine:
+- [x] Implement WeatherClient as a state machine:
       states: DISCONNECTED, CONNECTING, IDLE, FETCH_START, READ_HEADERS, READ_BODY, PARSE, COOL_DOWN
-- [ ] Use Open-Meteo (no API key).
-- [ ] Use lat/lon from include/secrets.h.
-- [ ] Fetch every 10 minutes; keep last known values.
-- [ ] Add strict timeouts for connect/read/total.
-- [ ] Parse only: temperature, cloud cover, wind speed, precip probability.
-- [ ] Never block the render loop; WeatherClient is a state machine.
-- [ ] Expose smoothed parameters to FlowFieldScene.
+- [x] Use Open-Meteo (no API key).
+- [x] Use lat/lon from include/secrets.h.
+- [x] Fetch every 10 minutes; keep last known values.
+- [x] Add strict timeouts for connect/read/total.
+- [x] Parse only: temperature, cloud cover, wind speed, precip probability.
+- [x] Never block the render loop; WeatherClient is a state machine.
+- [x] Expose smoothed parameters to FlowFieldScene.
 
 ## Phase 6 – Weather Mapping (Ambient, Non-Literal)
 Goal: environment affects “mood” not “data display”.
@@ -73,3 +73,10 @@ Goal: environment affects “mood” not “data display”.
 - [ ] Confirm no memory growth.
 - [ ] Confirm no periodic hangs.
 - [ ] Confirm Wi-Fi dropouts do not freeze animation.
+
+## Post-Phase Cleanup (Production Readiness)
+- [ ] Disable verbose WeatherClient logging (`WEATHER_LOG_VERBOSE=0`).
+- [ ] Decide on WeatherClient logging default (`WEATHER_LOG_ENABLED` on/off).
+- [ ] Remove or disable the sanity HTTP connect check.
+- [ ] Confirm Open-Meteo TLS certs are installed on the WiFiNINA module.
+- [ ] Rebuild and upload from a clean tree.

@@ -4,11 +4,14 @@
 
 #include "BoardConfig.h"
 #include "Engine.h"
+#include "net/WeatherClient.h"
 #include "scenes/FlowFieldScene.h"
 #include "scenes/TestScene.h"
 #include "secrets.h"
 
 constexpr uint32_t kFrameIntervalMs = 33; // ~30 FPS
+constexpr bool kWiFiSmokeTest = false;
+constexpr uint32_t kWiFiSmokeLogIntervalMs = 10000;
 
 enum class WiFiState : uint8_t {
   kIdle,
@@ -25,9 +28,11 @@ static WiFiState wifiState = WiFiState::kIdle;
 static uint32_t wifiStateStartMs = 0;
 static uint32_t wifiNextAttemptMs = 0;
 static uint32_t wifiLastStatusMs = 0;
+static uint32_t wifiSmokeLogMs = 0;
 
 static Engine engine(matrix, kFrameIntervalMs);
 static FlowFieldScene flowFieldScene;
+static WeatherClient weatherClient;
 
 static void printTimestamp() {
   Serial.print("[");
@@ -156,14 +161,37 @@ void setup() {
   matrix.fillScreen(0);
   matrix.show();
 
-  engine.setScene(&flowFieldScene);
-  engine.begin();
+  if (!kWiFiSmokeTest) {
+    engine.setScene(&flowFieldScene);
+    engine.begin();
+  }
 
+  weatherClient.begin();
   startWiFiConnect(millis());
 }
 
 void loop() {
   const uint32_t nowMs = millis();
   tickWiFi(nowMs);
+  weatherClient.tick(nowMs);
+
+  if (kWiFiSmokeTest) {
+    if ((uint32_t)(nowMs - wifiSmokeLogMs) >= kWiFiSmokeLogIntervalMs) {
+      printTimestamp();
+      Serial.println("WiFi: smoke test heartbeat");
+      wifiSmokeLogMs = nowMs;
+    }
+    return;
+  }
+
+  const WeatherClient::WeatherSample &smoothed = weatherClient.smoothed();
+  FlowFieldScene::WeatherParams params{};
+  params.temp_f = smoothed.temp_f;
+  params.wind_speed_mph = smoothed.wind_speed_mph;
+  params.cloud_cover_pct = smoothed.cloud_cover_pct;
+  params.precip_prob_pct = smoothed.precip_prob_pct;
+  params.valid = smoothed.valid;
+  flowFieldScene.setWeather(params);
+
   engine.tick(nowMs);
 }

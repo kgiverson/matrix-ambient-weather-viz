@@ -28,15 +28,16 @@ Scene: Flow Field Particles with Trails
 - Device connects to local Wi-Fi as a client.
 - Fetch cadence: no more than once every 10 minutes.
 - Weather affects *parameters*, not explicit text/graphics.
+- Responses may be chunked; WeatherClient de-chunks to a contiguous JSON buffer.
 - Open-Meteo fields requested (exact):
   - `temperature_2m`
-  - `windspeed_10m`
-  - `cloudcover`
+  - `wind_speed_10m`
+  - `cloud_cover`
   - `precipitation_probability`
 - Visual mapping:
   - `temperature_2m` -> palette warmth (cool to warm shift)
-  - `cloudcover` -> trail persistence / density
-  - `windspeed_10m` -> turbulence / flow strength
+  - `cloud_cover` -> trail persistence / density
+  - `wind_speed_10m` -> turbulence / flow strength
   - `precipitation_probability` -> occasional burst/reset events
 
 ## Networking Rules
