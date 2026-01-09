@@ -16,4 +16,5 @@ constexpr uint8_t kMatrixChains = 1;
 constexpr uint8_t kMatrixAddrLines = 4; // A-D for 32px tall panels
 constexpr bool kMatrixDoubleBuffer = true;
 
+extern const uint8_t kButtonPin;
 extern Adafruit_Protomatter matrix;

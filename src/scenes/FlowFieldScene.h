@@ -11,19 +11,11 @@ public:
     int16_t y;
   };
 
-  struct WeatherParams {
-    float temp_f;
-    float wind_speed_mph;
-    uint8_t cloud_cover_pct;
-    uint8_t precip_prob_pct;
-    bool valid;
-  };
-
   FlowFieldScene();
   void begin(Adafruit_Protomatter &matrix) override;
   void update(uint32_t dt_ms) override;
   void render(Adafruit_Protomatter &matrix) override;
-  void setWeather(const WeatherParams &params);
+  void setWeather(const WeatherParams &params) override;
 
 private:
   static constexpr uint8_t kFieldCols = 16;

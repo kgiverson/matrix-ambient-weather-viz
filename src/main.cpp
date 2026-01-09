@@ -5,6 +5,7 @@
 #include "AppConfig.h"
 #include "BoardConfig.h"
 #include "Engine.h"
+#include "SceneManager.h"
 #include "net/WeatherClient.h"
 #include "scenes/FlowFieldScene.h"
 #include "scenes/TestScene.h"
@@ -46,7 +47,7 @@ static uint32_t wifiSmokeLogMs = 0;
 static uint32_t heapLogLastMs = 0;
 
 static Engine engine(matrix, kFrameIntervalMs);
-static FlowFieldScene flowFieldScene;
+static SceneManager sceneManager(matrix, kButtonPin);
 static WeatherClient weatherClient;
 
 static void printTimestamp() {
@@ -184,7 +185,8 @@ void setup() {
   matrix.show();
 
   if (!kWiFiSmokeTest) {
-    engine.setScene(&flowFieldScene);
+    sceneManager.begin();
+    engine.setScene(sceneManager.getActiveScene());
     engine.begin();
   }
 
@@ -216,13 +218,15 @@ void loop() {
   }
 
   const WeatherClient::WeatherSample &smoothed = weatherClient.smoothed();
-  FlowFieldScene::WeatherParams params{};
+  WeatherParams params{};
   params.temp_f = smoothed.temp_f;
   params.wind_speed_mph = smoothed.wind_speed_mph;
   params.cloud_cover_pct = smoothed.cloud_cover_pct;
   params.precip_prob_pct = smoothed.precip_prob_pct;
   params.valid = smoothed.valid;
-  flowFieldScene.setWeather(params);
+  sceneManager.setWeather(params);
 
+  sceneManager.tick(nowMs);
+  engine.setScene(sceneManager.getActiveScene());
   engine.tick(nowMs);
 }

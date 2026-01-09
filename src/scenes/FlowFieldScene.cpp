@@ -1,6 +1,7 @@
 #include "scenes/FlowFieldScene.h"
 
 #include "BoardConfig.h"
+#include "PaletteUtils.h"
 
 namespace {
 constexpr FlowFieldScene::Vec2 kDirections[16] = {
@@ -21,23 +22,6 @@ constexpr FlowFieldScene::Vec2 kDirections[16] = {
   {181, -181},
   {237, -98},
 };
-
-constexpr uint8_t kBasePaletteRgb[16][3] = {
-  {0, 24, 40},   {0, 56, 96},   {0, 96, 120},  {0, 140, 120},
-  {0, 180, 100}, {0, 200, 40},  {40, 220, 40}, {80, 220, 60},
-  {120, 200, 60}, {160, 180, 80}, {200, 140, 60}, {220, 100, 40},
-  {200, 80, 80}, {160, 60, 120}, {120, 40, 140}, {80, 24, 120},
-};
-
-uint8_t clampU8(int value) {
-  if (value < 0) {
-    return 0;
-  }
-  if (value > 255) {
-    return 255;
-  }
-  return (uint8_t)value;
-}
 
 uint16_t clampU16(int value, int min_value, int max_value) {
   if (value < min_value) {
@@ -415,15 +399,15 @@ void FlowFieldScene::updatePalette(uint8_t warmth) {
   const int green_bias = (warm_offset * 5) / 128;  // Reduced from 12
 
   for (uint8_t i = 0; i < 16; ++i) {
-    const int r = (int)kBasePaletteRgb[i][0] + red_bias;
-    int g = (int)kBasePaletteRgb[i][1] + green_bias;
-    const int b = (int)kBasePaletteRgb[i][2] + blue_bias;
+    const int r = (int)PaletteUtils::kBasePaletteRgb[i][0] + red_bias;
+    int g = (int)PaletteUtils::kBasePaletteRgb[i][1] + green_bias;
+    const int b = (int)PaletteUtils::kBasePaletteRgb[i][2] + blue_bias;
     
     // Apply Cold Green Suppression
     // This strictly reduces the Green channel for Cyan/Teal colors in cold weather
     g = (int)(((int32_t)g * (int32_t)cold_green_scale_q8_) / 255);
     
-    palette_[i] = matrix.color565(clampU8(r), clampU8(g), clampU8(b));
+    palette_[i] = PaletteUtils::color565(PaletteUtils::clampU8(r), PaletteUtils::clampU8(g), PaletteUtils::clampU8(b));
   }
 }
 
