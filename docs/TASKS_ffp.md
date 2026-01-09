@@ -75,8 +75,8 @@ Goal: environment affects “mood” not “data display”.
 - [ ] Confirm Wi-Fi dropouts do not freeze animation.
 
 ## Post-Phase Cleanup (Production Readiness)
-- [ ] Disable verbose WeatherClient logging (`WEATHER_LOG_VERBOSE=0`).
-- [ ] Decide on WeatherClient logging default (`WEATHER_LOG_ENABLED` on/off).
-- [ ] Remove or disable the sanity HTTP connect check.
+- [x] Disable verbose WeatherClient logging (`WEATHER_LOG_VERBOSE=0`).
+- [x] Decide on WeatherClient logging default (`WEATHER_LOG_ENABLED` on/off).
+- [x] Remove or disable the sanity HTTP connect check.
 - [ ] Confirm Open-Meteo TLS certs are installed on the WiFiNINA module.
 - [ ] Rebuild and upload from a clean tree.
