@@ -1,11 +1,11 @@
-# Color ↔ Temperature Mapping (Chicago-Centric, Perceptual)
+# Color ↔ Temperature Mapping (Perceptual)
 
 This document defines the **intentional mapping between outdoor temperature (°F) and color behavior**
 for the MatrixPortal FlowField visual.  
-It is **perceptual, not linear**, and tuned for Chicago weather and webcam readability.
+It is **perceptual, not linear**, and tuned for US Midwest weather and webcam readability.
 
 The goal is to make the display *legible at a glance* and a subtle conversation piece:
-> “Oh — it’s cold in Chicago today.”
+> “Oh — it’s cold outside today.”
 
 This document describes **what the colors should feel like**, not how they are implemented.
 
@@ -171,6 +171,6 @@ To ensure consistency across all visualizations (FlowField, ReactionDiffusion, C
 3.  **Apply Cold Green Suppression:** Explicitly dampen the green channel of cyan/teal colors when temperature is low (< 50°F) to prevent a "spring" look. This is critical for the "Cold" and "Cool" bands.
 4.  **Apply Warmth Tinting:** Shift the entire palette's RGB values slightly (Red bias up, Blue bias down) as the calculated "warmth" factor increases.
 
-Do not invent new color schemes or temperature mappings. The "Chicago-Centric" feel is defined by these specific rules.
+Do not invent new color schemes or temperature mappings. The users preferred feel is defined by these specific rules.
 
 

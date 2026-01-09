@@ -89,6 +89,6 @@ If native rendering drops below 30 FPS:
 
 1.  **Foundation**: Implement Simplex Noise and basic render loop.
 2.  **Curl Logic**: Implement the curl math and visualize vectors (e.g., as greyscale or simple RGB).
-3.  **Palette Integration**: Map vectors to the "Chicago-centric" palette.
+3.  **Palette Integration**: Map vectors to the "shared" palette.
 4.  **Weather Connection**: Hook up weather parameters to animation variables.
 5.  **Scene Integration**: Add to `SceneManager` and enable button switching.

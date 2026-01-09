@@ -1,4 +1,4 @@
-# SPEC – Ambient Generative Display (Matrix Portal M4)
+# SPEC – Matrix Ambient Weather Viz (Matrix Portal M4)
 
 ## Hardware
 - Board: Adafruit Matrix Portal M4 (SAMD51 + ESP32 Wi-Fi coprocessor)

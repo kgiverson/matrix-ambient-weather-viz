@@ -252,7 +252,7 @@ void WeatherClient::beginRequest(uint32_t now_ms) {
       "cloud_cover,wind_speed_10m,precipitation_probability&temperature_unit="
       "fahrenheit&wind_speed_unit=mph&timezone=auto HTTP/1.1\r\n"
       "Host: %s\r\n"
-      "User-Agent: matrix-agd-viz/1.0\r\n"
+      "User-Agent: matrix-ambient-weather-viz/1.0\r\n"
       "Accept: application/json\r\n"
       "Accept-Encoding: identity\r\n"
       "Connection: close\r\n"

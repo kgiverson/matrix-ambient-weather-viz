@@ -312,7 +312,7 @@ void FlowFieldScene::setWeather(const WeatherParams &params) {
 
   // Visual parameters
   int wind_q = (int)(wind_mph + (wind_mph >= 0.0f ? 0.5f : -0.5f));
-  // Chicago Tuning: Cap effective wind at 35mph (since 25 is "Gusty")
+  // City Tuning: Cap effective wind at 35mph (since 25 is "Gusty")
   wind_q = (int)clampU16(wind_q, 0, 35);
 
   // Warmth determines the global tint shift in updatePalette

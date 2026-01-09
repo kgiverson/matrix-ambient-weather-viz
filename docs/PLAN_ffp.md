@@ -1,4 +1,4 @@
-# Ambient Generative Display – Project Plan
+# Matrix Ambient Weather Viz – Project Plan
 
 ## 1. Overview
 
