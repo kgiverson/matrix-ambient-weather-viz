@@ -233,9 +233,17 @@ void loop() {
   static float current_dimmer = 1.0f;
   float target_dimmer = 1.0f;
   
-  if (weatherClient.isApproachingFetch(nowMs, 2500)) { // 2.5s lead time
+  static bool wasApproaching = false;
+  bool isApproaching = weatherClient.isApproachingFetch(nowMs, 2500);
+  if (isApproaching) { // 2.5s lead time
     target_dimmer = 0.0f;
   }
+
+  // Cycle scene if we just finished a fetch (and we are in cycle mode)
+  if (!isApproaching && wasApproaching) {
+    sceneManager.cycleSceneIfEnabled();
+  }
+  wasApproaching = isApproaching;
   
   // Smooth transition (simple lerp)
   // Frame time is ~33ms. 

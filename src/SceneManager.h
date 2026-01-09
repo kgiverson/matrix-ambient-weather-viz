@@ -18,6 +18,7 @@ public:
   void update(uint32_t dt_ms);
   void render();
   void setWeather(const WeatherParams &params);
+  void cycleSceneIfEnabled();
   
   Scene* getActiveScene() const { return active_scene_; }
 
@@ -28,9 +29,11 @@ public:
     uint8_t reserved[3];
   };
 
+  static constexpr uint8_t kCycleModeId = 3;
+
 private:
   static constexpr uint32_t kMagic = 0xA55A0001;
-  static constexpr uint8_t kSceneCount = 3;
+  static constexpr uint8_t kSceneCount = 4;
   static constexpr uint32_t kDebounceMs = 50;
 
   Adafruit_Protomatter &matrix_;
@@ -43,6 +46,7 @@ private:
   ReactionDiffusionScene reactionDiffusionScene_;
   CurlNoiseScene curlNoiseScene_;
   Scene *active_scene_;
+  uint8_t internal_scene_index_;
 
   // Button state
   bool last_button_state_;

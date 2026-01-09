@@ -5,6 +5,7 @@ FlashStorage(flash_store, SceneManager::PersistentState);
 
 SceneManager::SceneManager(Adafruit_Protomatter &matrix, uint8_t button_pin)
     : matrix_(matrix), button_pin_(button_pin), active_scene_(nullptr),
+      internal_scene_index_(0),
       last_button_state_(HIGH), last_debounce_time_(0),
       button_pressed_event_(false) {}
 
@@ -76,11 +77,16 @@ void SceneManager::setWeather(const WeatherParams &params) {
 void SceneManager::switchScene(uint8_t scene_id) {
   matrix_.fillScreen(0);
   
-  if (scene_id == 0) {
+  uint8_t target_id = scene_id;
+  if (scene_id == kCycleModeId) {
+    target_id = internal_scene_index_;
+  }
+
+  if (target_id == 0) {
     active_scene_ = &flowFieldScene_;
-  } else if (scene_id == 1) {
+  } else if (target_id == 1) {
     active_scene_ = &reactionDiffusionScene_;
-  } else if (scene_id == 2) {
+  } else if (target_id == 2) {
     active_scene_ = &curlNoiseScene_;
   } else {
     active_scene_ = &flowFieldScene_; // Default
@@ -88,6 +94,15 @@ void SceneManager::switchScene(uint8_t scene_id) {
   
   state_.current_scene_id = scene_id;
   active_scene_->begin(matrix_);
+}
+
+void SceneManager::cycleSceneIfEnabled() {
+  if (state_.current_scene_id == kCycleModeId) {
+    internal_scene_index_ = (internal_scene_index_ + 1) % 3; // Cycle through 3 real scenes
+    switchScene(kCycleModeId);
+    Serial.print("SceneManager: cycling to internal index ");
+    Serial.println(internal_scene_index_);
+  }
 }
 
 void SceneManager::loadState() {
