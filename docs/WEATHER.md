@@ -42,7 +42,7 @@ Mapping Table
 | temperature_2m | Palette warmth |
 | cloud_cover | Trail persistence / density |
 | wind_speed_10m | Turbulence |
-| precipitation_probability | Occasional burst/reset |
+| precipitation_probability | Gravity bias (downward flow) |
 
 Retry / Backoff
 - Hard timeouts per request: connect, read, total.

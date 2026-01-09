@@ -84,8 +84,7 @@ FlowFieldScene::FlowFieldScene()
       active_particles_(kParticleCount),
       particle_speed_(kParticleSpeed),
       precip_accum_ms_(0),
-      precip_burst_interval_ms_(0),
-      precip_burst_pending_(false),
+      gravity_add_(0),
       green_allow_q8_(255),
       red_takeover_q8_(0),
       cold_green_scale_q8_(255),
@@ -143,8 +142,7 @@ void FlowFieldScene::begin(Adafruit_Protomatter &matrix) {
   active_particles_ = kParticleCount;
   particle_speed_ = kParticleSpeed;
   precip_accum_ms_ = 0;
-  precip_burst_interval_ms_ = 0;
-  precip_burst_pending_ = false;
+  gravity_add_ = 0;
   green_allow_q8_ = 255;
   red_takeover_q8_ = 0;
   cold_green_scale_q8_ = 255;
@@ -182,14 +180,6 @@ void FlowFieldScene::update(uint32_t dt_ms) {
     }
   }
 
-  if (precip_burst_interval_ms_ > 0) {
-    precip_accum_ms_ += dt_ms;
-    if (precip_accum_ms_ >= precip_burst_interval_ms_) {
-      precip_accum_ms_ -= precip_burst_interval_ms_;
-      applyPrecipBurst();
-    }
-  }
-
   for (uint16_t i = 0; i < active_particles_; ++i) {
     Particle &p = particles_[i];
     const int16_t x = (int16_t)(p.x_fp >> kFixedShift);
@@ -201,7 +191,7 @@ void FlowFieldScene::update(uint32_t dt_ms) {
     const Vec2 dir = direction(field_[field_index]);
 
     const int32_t vx_fp = (int32_t)dir.x * particle_speed_;
-    const int32_t vy_fp = (int32_t)dir.y * particle_speed_;
+    const int32_t vy_fp = (int32_t)dir.y * particle_speed_ + (int32_t)gravity_add_ * 256; // Add gravity (heavier)
 
     p.x_fp += (vx_fp * (int32_t)dt_ms) / 1000;
     p.y_fp += (vy_fp * (int32_t)dt_ms) / 1000;
@@ -242,25 +232,19 @@ void FlowFieldScene::render(Adafruit_Protomatter &matrix) {
 
   uint16_t *buffer = sim_buffer_;
   const uint32_t count = (uint32_t)kMatrixWidth * kMatrixHeight;
-  if (precip_burst_pending_) {
-    for (uint32_t i = 0; i < count; ++i) {
-      buffer[i] = 0;
+
+  for (uint32_t i = 0; i < count; ++i) {
+    const uint16_t c = buffer[i];
+    if (c == 0) {
+      continue;
     }
-    precip_burst_pending_ = false;
-  } else {
-    for (uint32_t i = 0; i < count; ++i) {
-      const uint16_t c = buffer[i];
-      if (c == 0) {
-        continue;
-      }
-      uint8_t r = (uint8_t)((c >> 11) & 0x1F);
-      uint8_t g = (uint8_t)((c >> 5) & 0x3F);
-      uint8_t b = (uint8_t)(c & 0x1F);
-      r = (uint8_t)((r * fade_factor_) >> 8);
-      g = (uint8_t)((g * fade_factor_) >> 8);
-      b = (uint8_t)((b * fade_factor_) >> 8);
-      buffer[i] = (uint16_t)((r << 11) | (g << 5) | b);
-    }
+    uint8_t r = (uint8_t)((c >> 11) & 0x1F);
+    uint8_t g = (uint8_t)((c >> 5) & 0x3F);
+    uint8_t b = (uint8_t)(c & 0x1F);
+    r = (uint8_t)((r * fade_factor_) >> 8);
+    g = (uint8_t)((g * fade_factor_) >> 8);
+    b = (uint8_t)((b * fade_factor_) >> 8);
+    buffer[i] = (uint16_t)((r << 11) | (g << 5) | b);
   }
 
   for (uint16_t i = 0; i < active_particles_; ++i) {
@@ -290,69 +274,66 @@ void FlowFieldScene::setWeather(const WeatherParams &params) {
   int temp_q = (int)(temp_f + (temp_f >= 0.0f ? 0.5f : -0.5f));
   temp_q = (int)clampU16(temp_q, 0, 100);
 
-  float warmth = 0.0f;
-  if (temp_f <= 20.0f) {
-    const float t = smoothstep((temp_f - 0.0f) / 20.0f);
-    warmth = lerp(0.00f, 0.12f, t);
-  } else if (temp_f <= 40.0f) {
-    const float t = smoothstep((temp_f - 20.0f) / 20.0f);
-    warmth = lerp(0.12f, 0.32f, t);
-  } else if (temp_f <= 65.0f) {
-    const float t = smoothstep((temp_f - 40.0f) / 25.0f);
-    warmth = lerp(0.32f, 0.72f, t);
-  } else if (temp_f <= 85.0f) {
-    const float t = smoothstep((temp_f - 65.0f) / 20.0f);
-    warmth = lerp(0.72f, 0.92f, t);
-  } else {
-    const float t = smoothstep((temp_f - 85.0f) / 15.0f);
-    warmth = lerp(0.92f, 1.00f, t);
-  }
-
-  if (warmth < 0.0f) {
-    warmth = 0.0f;
-  } else if (warmth > 1.0f) {
-    warmth = 1.0f;
-  }
-  const uint8_t temp_warm = (uint8_t)(warmth * 255.0f + 0.5f);
-  const float green_allow = smoothstep(50.0f, 65.0f, temp_f);
-  const float rainbow =
-      smoothstep(65.0f, 70.0f, temp_f) *
-      (1.0f - smoothstep(80.0f, 85.0f, temp_f));
-  const float red_takeover = smoothstep(80.0f, 92.0f, temp_f);
-  const float cold_green_scale = lerp(0.55f, 1.0f, rainbow);
-  green_allow_q8_ = (uint8_t)(green_allow * 255.0f + 0.5f);
-  red_takeover_q8_ = (uint8_t)(red_takeover * 255.0f + 0.5f);
-  cold_green_scale_q8_ = (uint8_t)(cold_green_scale * 255.0f + 0.5f);
-
+  // Band-based Palette Selection (Per COLOR.md)
   uint8_t allowed[16];
   uint8_t allowed_count = 0;
-  const uint8_t cold_safe[] = {0, 1, 2, 15, 14, 13};
-  for (uint8_t i = 0; i < sizeof(cold_safe); ++i) {
-    allowed[allowed_count++] = cold_safe[i];
+  
+  // Cold Green Scale: Dampens green channel in Cyan/Teal to prevent "spring" look in cold
+  // Default to full brightness (255)
+  cold_green_scale_q8_ = 255;
+  
+  if (temp_f <= 20.0f) {
+    // Very Cold: Deep Blue, Indigo, Violet
+    const uint8_t set[] = {0, 1, 15}; 
+    for(uint8_t i=0; i<sizeof(set); ++i) allowed[allowed_count++] = set[i];
+    cold_green_scale_q8_ = 100; // Heavy green suppression
+  } 
+  else if (temp_f <= 40.0f) {
+    // Cold: Blues + Icy Cyan (Suppressed Green)
+    const uint8_t set[] = {0, 1, 2, 3, 15};
+    for(uint8_t i=0; i<sizeof(set); ++i) allowed[allowed_count++] = set[i];
+    cold_green_scale_q8_ = 140; // Moderate green suppression for Cyan
   }
-  if (rainbow >= 0.2f) {
-    allowed[allowed_count++] = 3;
-    allowed[allowed_count++] = 4;
+  else if (temp_f <= 50.0f) {
+    // Cool / Transition: Blues + Teal
+    const uint8_t set[] = {0, 1, 2, 3, 4};
+    for(uint8_t i=0; i<sizeof(set); ++i) allowed[allowed_count++] = set[i];
+    cold_green_scale_q8_ = 180; // Light green suppression
   }
-  if (green_allow > 0.2f) {
-    const uint8_t greens[] = {5, 6, 7, 8, 9};
-    for (uint8_t i = 0; i < sizeof(greens); ++i) {
-      allowed[allowed_count++] = greens[i];
-    }
+  else if (temp_f <= 65.0f) {
+    // Mild: Balanced Blue/Green (Cyan, Teal, Fresh Greens)
+    const uint8_t set[] = {2, 3, 4, 5, 6};
+    for(uint8_t i=0; i<sizeof(set); ++i) allowed[allowed_count++] = set[i];
+    // No suppression needed
   }
-  if (red_takeover > 0.2f) {
-    const uint8_t hot[] = {10, 11, 12};
-    for (uint8_t i = 0; i < sizeof(hot); ++i) {
-      allowed[allowed_count++] = hot[i];
-    }
+  else if (temp_f <= 80.0f) {
+    // Sweet Spot: Full Spectrum
+    for(uint8_t i=0; i<16; ++i) allowed[allowed_count++] = i;
   }
+  else if (temp_f <= 90.0f) {
+    // Hot: Greens receding, warm dominance
+    const uint8_t set[] = {8, 9, 10, 11, 12};
+    for(uint8_t i=0; i<sizeof(set); ++i) allowed[allowed_count++] = set[i];
+  }
+  else {
+    // Very Hot: Deep Reds/Oranges only
+    const uint8_t set[] = {10, 11, 12};
+    for(uint8_t i=0; i<sizeof(set); ++i) allowed[allowed_count++] = set[i];
+  }
+
   allowed_count_ = (allowed_count == 0) ? 1 : allowed_count;
   for (uint8_t i = 0; i < allowed_count_; ++i) {
     allowed_indices_[i] = allowed[i];
   }
 
+  // Visual parameters
   int wind_q = (int)(wind_mph + (wind_mph >= 0.0f ? 0.5f : -0.5f));
-  wind_q = (int)clampU16(wind_q, 0, 40);
+  // Chicago Tuning: Cap effective wind at 35mph (since 25 is "Gusty")
+  wind_q = (int)clampU16(wind_q, 0, 35);
+
+  // Warmth determines the global tint shift in updatePalette
+  // Simplified: 0-255 based loosely on temp, but much less aggressive
+  uint8_t temp_warm = (uint8_t)clampU16((int)(temp_f * 2.55f), 0, 255);
 
   if (temp_warm != last_temp_warm_) {
     updatePalette(temp_warm);
@@ -361,48 +342,55 @@ void FlowFieldScene::setWeather(const WeatherParams &params) {
 
   if (cloud != last_cloud_) {
     fade_factor_ = (uint8_t)(236 + ((uint16_t)cloud * 16) / 100);
-    const uint16_t span = kParticleCount - kMinParticles;
+    // Ensure at least 60% of particles are active even in clear weather
+    const uint16_t min_active = (kParticleCount * 60) / 100;
+    const uint16_t span = kParticleCount - min_active;
     active_particles_ =
-        (uint16_t)(kMinParticles + ((uint32_t)cloud * span) / 100);
+        (uint16_t)(min_active + ((uint32_t)cloud * span) / 100);
     last_cloud_ = cloud;
   }
 
   if ((uint8_t)wind_q != last_wind_) {
-    field_update_interval_ms_ =
-        (uint16_t)(60 - ((uint32_t)wind_q * 40) / 40);
-    if (field_update_interval_ms_ < 16) {
-      field_update_interval_ms_ = 16;
+    // Turbulence: 80ms (Calm) -> 20ms (Stormy)
+    // Formula: 80 - (wind * 2)
+    int interval = 80 - (wind_q * 2);
+    if (interval < 20) {
+      interval = 20;
     }
-    particle_speed_ = (int16_t)(30 + ((uint32_t)wind_q * 40) / 40);
+    field_update_interval_ms_ = (uint16_t)interval;
+
+    // Speed: 25px/s (Calm) -> ~90px/s (Max)
+    // Formula: 25 + (wind * 1.8)
+    particle_speed_ = (int16_t)(25 + (wind_q * 9) / 5);
+    
     last_wind_ = (uint8_t)wind_q;
   }
 
   if (precip != last_precip_) {
-    if (precip < 15) {
-      precip_burst_interval_ms_ = 0;
+    // Map precip % (0-100) to gravity bias (0-50)
+    // 0-20%: No gravity
+    // 20-100%: Linear increase
+    if (precip <= 20) {
+      gravity_add_ = 0;
     } else {
-      const uint16_t interval =
-          (uint16_t)(30000 - ((uint32_t)precip * 200));
-      precip_burst_interval_ms_ =
-          clampU16(interval, 8000, 30000);
+      gravity_add_ = (int16_t)(((uint32_t)(precip - 20) * 50) / 80); 
     }
-    precip_accum_ms_ = 0;
     last_precip_ = precip;
   }
 
   if (params.valid && temp_q != last_temp_log_q_) {
     Serial.print("WeatherMap: temp_f=");
     Serial.print(temp_f, 1);
-    Serial.print(" warmth=");
-    Serial.print(warmth, 3);
-    Serial.print(" rainbow=");
-    Serial.print(rainbow, 3);
-    Serial.print(" greenAllow=");
-    Serial.print(green_allow, 3);
-    Serial.print(" redTakeover=");
-    Serial.print(red_takeover, 3);
+    Serial.print(" band=");
+    if (temp_f <= 20) Serial.print("VeryCold");
+    else if (temp_f <= 40) Serial.print("Cold");
+    else if (temp_f <= 50) Serial.print("Cool");
+    else if (temp_f <= 65) Serial.print("Mild");
+    else if (temp_f <= 80) Serial.print("SweetSpot");
+    else if (temp_f <= 90) Serial.print("Hot");
+    else Serial.print("VeryHot");
     Serial.print(" coldGreen=");
-    Serial.print(cold_green_scale, 3);
+    Serial.print(cold_green_scale_q8_);
     Serial.print(" allowedCount=");
     Serial.print(allowed_count_);
     Serial.print(" idxList=");
@@ -418,34 +406,24 @@ void FlowFieldScene::setWeather(const WeatherParams &params) {
 }
 
 void FlowFieldScene::updatePalette(uint8_t warmth) {
+  // Much subtler tinting:
+  // Warmth > 128 adds slight Red/Green (Warm)
+  // Warmth < 128 adds slight Blue (Cool)
   const int warm_offset = (int)warmth - 128;
-  const int red_bias = (warm_offset * 40) / 128;
-  const int blue_bias = (warm_offset * -40) / 128;
-  const int green_bias = (warm_offset * 12) / 128;
+  const int red_bias = (warm_offset * 20) / 128;   // Reduced from 40
+  const int blue_bias = (warm_offset * -20) / 128; // Reduced from 40
+  const int green_bias = (warm_offset * 5) / 128;  // Reduced from 12
 
   for (uint8_t i = 0; i < 16; ++i) {
     const int r = (int)kBasePaletteRgb[i][0] + red_bias;
     int g = (int)kBasePaletteRgb[i][1] + green_bias;
     const int b = (int)kBasePaletteRgb[i][2] + blue_bias;
+    
+    // Apply Cold Green Suppression
+    // This strictly reduces the Green channel for Cyan/Teal colors in cold weather
     g = (int)(((int32_t)g * (int32_t)cold_green_scale_q8_) / 255);
+    
     palette_[i] = matrix.color565(clampU8(r), clampU8(g), clampU8(b));
   }
 }
 
-void FlowFieldScene::applyPrecipBurst() {
-  for (uint16_t i = 0; i < kFieldSize; ++i) {
-    field_[i] = (uint8_t)(nextRand(rng_) & 0x0F);
-  }
-  field_cursor_ = 0;
-  drift_bias_ = (uint8_t)(nextRand(rng_) & 0x0F);
-  palette_offset_ = (uint8_t)(nextRand(rng_) & 0x0F);
-  for (uint16_t i = 0; i < kParticleCount; ++i) {
-    const uint16_t x = (uint16_t)(nextRand(rng_) % kMatrixWidth);
-    const uint16_t y = (uint16_t)(nextRand(rng_) % kMatrixHeight);
-    particles_[i].x_fp = (int32_t)(x << kFixedShift);
-    particles_[i].y_fp = (int32_t)(y << kFixedShift);
-    particles_[i].age = (uint8_t)(nextRand(rng_) & 0xFF);
-    particles_[i].pad = 0;
-  }
-  precip_burst_pending_ = true;
-}

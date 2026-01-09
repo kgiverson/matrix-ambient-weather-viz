@@ -66,7 +66,7 @@ Goal: environment affects “mood” not “data display”.
 - [x] Map temperature -> palette warmth.
 - [x] Map cloud cover -> trail persistence / density.
 - [x] Map wind speed -> turbulence.
-- [x] Map precip chance -> occasional burst/reset.
+- [x] Map precip chance -> gravity bias (downward flow).
 
 ## Phase 7 – Long-Run Stability
 - [ ] Run for 4+ hours.

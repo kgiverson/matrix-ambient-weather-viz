@@ -107,8 +107,8 @@ private:
   WiFiClient *client_;
   WiFiSSLClient ssl_client_;
   WiFiClient tcp_client_;
-  char header_buf_[384];
-  char body_buf_[640];
-  char chunk_line_buf_[12];
+  char header_buf_[1024];
+  char body_buf_[2048];
+  char chunk_line_buf_[16];
   char request_buf_[512];
 };

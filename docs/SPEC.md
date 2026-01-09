@@ -38,7 +38,7 @@ Scene: Flow Field Particles with Trails
   - `temperature_2m` -> palette warmth (cool to warm shift)
   - `cloud_cover` -> trail persistence / density
   - `wind_speed_10m` -> turbulence / flow strength
-  - `precipitation_probability` -> occasional burst/reset events
+  - `precipitation_probability` -> gravity bias (downward flow)
 
 ## Networking Rules
 - Networking MUST be time-budgeted:

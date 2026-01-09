@@ -48,7 +48,6 @@ private:
   static uint32_t nextRand(uint32_t &state);
   static Vec2 direction(uint8_t idx);
   void updatePalette(uint8_t warmth);
-  void applyPrecipBurst();
 
   uint32_t rng_;
   uint32_t field_accum_ms_;
@@ -63,8 +62,7 @@ private:
   uint16_t active_particles_;
   int16_t particle_speed_;
   uint32_t precip_accum_ms_;
-  uint16_t precip_burst_interval_ms_;
-  bool precip_burst_pending_;
+  int16_t gravity_add_;
   uint8_t green_allow_q8_;
   uint8_t red_takeover_q8_;
   uint8_t cold_green_scale_q8_;

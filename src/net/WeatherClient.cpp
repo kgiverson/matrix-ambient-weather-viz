@@ -216,6 +216,8 @@ void WeatherClient::beginRequest(uint32_t now_ms) {
   chunk_line_len_ = 0;
   chunk_zero_ = false;
 
+  memset(header_buf_, 0, sizeof(header_buf_));
+
   char lat_buf[16];
   char lon_buf[16];
   formatFixed4(WEATHER_LAT, lat_buf, sizeof(lat_buf));
@@ -613,6 +615,9 @@ bool WeatherClient::processChunkByte(char c) {
       return true;
     }
     if (chunk_line_len_ + 1 >= (uint8_t)sizeof(chunk_line_buf_)) {
+#if WEATHER_LOG_ENABLED
+      if (canLog()) { Serial.print("Weather: chunk size line overflow, len="); Serial.println(chunk_line_len_); }
+#endif
       return false;
     }
     chunk_line_buf_[chunk_line_len_++] = c;
@@ -621,6 +626,9 @@ bool WeatherClient::processChunkByte(char c) {
 
   if (chunk_state_ == ChunkState::kReadData) {
     if (!appendBodyByte(c)) {
+#if WEATHER_LOG_ENABLED
+      if (canLog()) Serial.println("Weather: body overflow in chunk data");
+#endif
       return false;
     }
     chunk_read_++;
@@ -705,6 +713,10 @@ void WeatherClient::handleReadHeaders(uint32_t now_ms) {
   }
 
   const char *body_start = end + 4;
+  if (body_start > header_buf_ + header_len_) {
+    // Found a stale delimiter past the current valid data
+    return;
+  }
   const size_t header_bytes = (size_t)(body_start - header_buf_);
   const size_t remaining = header_len_ - header_bytes;
 
@@ -735,6 +747,7 @@ void WeatherClient::handleReadHeaders(uint32_t now_ms) {
   }
 #endif
   if (status < 200 || status >= 300) {
+    if (canLog()) { Serial.print("Weather: bad status "); Serial.println(status); }
     scheduleFailure(now_ms);
     return;
   }
@@ -769,14 +782,28 @@ void WeatherClient::handleReadHeaders(uint32_t now_ms) {
   }
 
   if (remaining > 0) {
+#if WEATHER_LOG_ENABLED && WEATHER_LOG_VERBOSE
+    if (canLog()) {
+      Serial.print("Weather: header residue len=");
+      Serial.print((unsigned long)remaining);
+      Serial.print(" bytes: ");
+      for(size_t i=0; i<remaining && i<16; ++i) {
+        Serial.print((uint8_t)body_start[i], HEX);
+        Serial.print(" ");
+      }
+      Serial.println();
+    }
+#endif
     for (size_t i = 0; i < remaining; ++i) {
       if (chunked_) {
         if (!processChunkByte(body_start[i])) {
+          if (canLog()) Serial.println("Weather: header-residue chunk parse fail");
           scheduleFailure(now_ms);
           return;
         }
       } else {
         if (!appendBodyByte(body_start[i])) {
+          if (canLog()) Serial.println("Weather: header-residue body append fail");
           scheduleFailure(now_ms);
           return;
         }
