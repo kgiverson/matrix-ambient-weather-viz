@@ -94,26 +94,26 @@ No brightness dimming based on temperature.
 
 ---
 
-## Weather Reactivity (Phase 1)
+## Weather Reactivity (Implemented)
 
-### Wind
-- Wind speed scales:
-  - Flow intensity
-  - Rate of time evolution
-- Calm wind → slow, almost static drift
-- High wind → more pronounced swirling
+### Wind $\rightarrow$ Flow Velocity
+- Wind speed (mph) scales the rate of time evolution (Z-axis of noise).
+- **Calm wind**: Slow, almost static drift.
+- **High wind**: Pronounced swirling and energetic motion.
 
-### Clouds
-- Cloud cover controls **temporal smoothing**:
-  - High cloud → slower changes, smoother motion
-  - Low cloud → slightly more texture detail
+### Clouds $\rightarrow$ Texture Scale
+- Cloud cover (%) controls the spatial frequency of the noise.
+- **High cloud**: Larger, smoother, "pillowy" features.
+- **Low cloud**: Higher detail, finer currents, more "crunchy" texture.
 
-### Precipitation
-- Does NOT draw rain
-- Used only for rare events:
-  - Subtle phase shift
-  - Temporary distortion
-  - Gentle reset of field parameters
+### Temperature $\rightarrow$ Palette & Tint
+- **Banding**: Matches shared project thresholds (20, 40, 50, 65, 80, 90°F) to restrict the `allowed_indices` of the palette.
+- **Tinting**: Applies global RGB shifts (Red bias for heat, Blue bias for cold).
+- **Green Suppression**: Actively damps green channel in cold weather (< 50°F) to preserve winter aesthetic.
+
+### Precipitation $\rightarrow$ Turbulence
+- High precipitation probability (> 70%) triggers a "busy" multiplier (1.2x) on the noise scale.
+- Does NOT draw literal rain; creates a more chaotic or "disturbed" flow field.
 
 ---
 

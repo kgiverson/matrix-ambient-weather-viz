@@ -162,10 +162,15 @@ If a change violates this intuition, it is probably wrong.
 
 ---
 
-## Notes for Implementation (Non-Binding)
+## Notes for Implementation (Binding for New Scenes)
 
-- This document describes *intent*, not exact code.
-- Implementation may use LUT gating, channel scaling, smoothstep curves, etc.
-- When in doubt, prioritize **human perception over numeric correctness**.
+To ensure consistency across all visualizations (FlowField, ReactionDiffusion, CurlNoise, etc.), **all new scenes must strictly adhere to the following implementation pattern**:
+
+1.  **Use `PaletteUtils::kBasePaletteRgb`** as the source of truth for base colors.
+2.  **Implement Temperature Banding:** Match the thresholds defined above (20, 40, 50, 65, 80, 90) to restrict the `allowed_indices` (the visible subset of the palette).
+3.  **Apply Cold Green Suppression:** Explicitly dampen the green channel of cyan/teal colors when temperature is low (< 50°F) to prevent a "spring" look. This is critical for the "Cold" and "Cool" bands.
+4.  **Apply Warmth Tinting:** Shift the entire palette's RGB values slightly (Red bias up, Blue bias down) as the calculated "warmth" factor increases.
+
+Do not invent new color schemes or temperature mappings. The "Chicago-Centric" feel is defined by these specific rules.
 
 
