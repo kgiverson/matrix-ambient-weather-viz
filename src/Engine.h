@@ -11,7 +11,7 @@ public:
 
   void setScene(Scene *scene);
   void begin();
-  void tick(uint32_t now_ms);
+  void tick(uint32_t now_ms, float dimmer = 1.0f);
 
 private:
   Adafruit_Protomatter &matrix_;

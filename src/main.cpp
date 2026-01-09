@@ -228,5 +228,26 @@ void loop() {
 
   sceneManager.tick(nowMs);
   engine.setScene(sceneManager.getActiveScene());
-  engine.tick(nowMs);
+  
+  // Fade out if weather fetch is approaching or active
+  static float current_dimmer = 1.0f;
+  float target_dimmer = 1.0f;
+  
+  if (weatherClient.isApproachingFetch(nowMs, 2500)) { // 2.5s lead time
+    target_dimmer = 0.0f;
+  }
+  
+  // Smooth transition (simple lerp)
+  // Frame time is ~33ms. 
+  // To fade in ~1.0s, we need step ~ 0.033
+  // Let's use a faster fade out, slower fade in
+  if (current_dimmer > target_dimmer) {
+    current_dimmer -= 0.05f; // Fade out in ~20 frames (0.6s)
+    if (current_dimmer < 0.0f) current_dimmer = 0.0f;
+  } else if (current_dimmer < target_dimmer) {
+    current_dimmer += 0.02f; // Fade in in ~50 frames (1.5s)
+    if (current_dimmer > 1.0f) current_dimmer = 1.0f;
+  }
+
+  engine.tick(nowMs, current_dimmer);
 }

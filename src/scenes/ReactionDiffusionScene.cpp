@@ -13,7 +13,8 @@ uint16_t color565(uint8_t r, uint8_t g, uint8_t b) {
 ReactionDiffusionScene::ReactionDiffusionScene()
     : feed_(0.037f), kill_(0.060f), diff_u_(1.0f), diff_v_(0.5f), dt_sim_(0.5f),
       current_buf_(0), weather_{}, phase_(0.0f),
-      cold_green_scale_q8_(255), allowed_count_(16), last_temp_warm_(0xFF) {
+      cold_green_scale_q8_(255), allowed_count_(16), last_temp_warm_(0xFF),
+      wind_x_(0.0f), wind_y_(0.0f) {
   u_[0] = nullptr;
   u_[1] = nullptr;
   v_[0] = nullptr;
@@ -119,7 +120,12 @@ void ReactionDiffusionScene::step() {
   float *next_u = u_[next_buf];
   float *next_v = v_[next_buf];
 
+  const float inv_height = 1.0f / kHeight;
+
   for (int y = 0; y < kHeight; ++y) {
+    float norm_y = (float)y * inv_height;
+    float local_kill = kill_ + (0.003f - (norm_y * 0.006f)); 
+
     for (int x = 0; x < kWidth; ++x) {
       int i = y * kWidth + x;
       
@@ -130,18 +136,30 @@ void ReactionDiffusionScene::step() {
       float lap_u = laplacian(x, y, u);
       float lap_v = laplacian(x, y, v);
 
-      float du = (diff_u_ * lap_u) - uvv + (feed_ * (1.0f - u_val));
-      float dv = (diff_v_ * lap_v) + uvv - ((feed_ + kill_) * v_val);
+      // Advection: Calculate central gradients
+      int xp1 = (x + 1) % kWidth;
+      int xm1 = (x - 1 + kWidth) % kWidth;
+      int yp1 = (y + 1) % kHeight;
+      int ym1 = (y - 1 + kHeight) % kHeight;
+      
+      float grad_u_x = (u[y * kWidth + xp1] - u[y * kWidth + xm1]) * 0.5f;
+      float grad_u_y = (u[yp1 * kWidth + x] - u[ym1 * kWidth + x]) * 0.5f;
+      float grad_v_x = (v[y * kWidth + xp1] - v[y * kWidth + xm1]) * 0.5f;
+      float grad_v_y = (v[yp1 * kWidth + x] - v[ym1 * kWidth + x]) * 0.5f;
 
-      // Add a tiny bit of noise to prevent "perfect" static equilibrium
+      float adv_u = -(wind_x_ * grad_u_x + wind_y_ * grad_u_y);
+      float adv_v = -(wind_x_ * grad_v_x + wind_y_ * grad_v_y);
+
+      float du = (diff_u_ * lap_u) - uvv + (feed_ * (1.0f - u_val));
+      float dv = (diff_v_ * lap_v) + uvv - ((feed_ + local_kill) * v_val);
+
       if ((i & 0x7F) == 0) {
         dv += ((float)random(100) - 50.0f) * 0.0001f;
       }
 
-      next_u[i] = u_val + (du * dt_sim_);
-      next_v[i] = v_val + (dv * dt_sim_);
+      next_u[i] = u_val + ((du + adv_u) * dt_sim_);
+      next_v[i] = v_val + ((dv + adv_v) * dt_sim_);
 
-      // Clamp
       if (next_u[i] < 0.0f) next_u[i] = 0.0f;
       else if (next_u[i] > 1.0f) next_u[i] = 1.0f;
       
@@ -160,6 +178,21 @@ void ReactionDiffusionScene::update(uint32_t dt_ms) {
   float drift_f = sinf(phase_) * 0.004f;
   float drift_k = cosf(phase_ * 0.7f) * 0.002f;
   
+  // Calculate Advection Vector (Rotating Wind)
+  // Base rotation on phase
+  float wind_angle = phase_ * 0.2f; 
+  float wind_mag = 0.0f;
+  
+  if (weather_.valid) {
+     // 0-30mph maps to 0.0-0.4 advection strength
+     wind_mag = weather_.wind_speed_mph * 0.012f;
+     // Cap it to prevent numerical explosion
+     if (wind_mag > 0.5f) wind_mag = 0.5f; 
+  }
+  
+  wind_x_ = cosf(wind_angle) * wind_mag;
+  wind_y_ = sinf(wind_angle) * wind_mag;
+
   float active_feed = feed_ + drift_f;
   float active_kill = kill_ + drift_k;
 

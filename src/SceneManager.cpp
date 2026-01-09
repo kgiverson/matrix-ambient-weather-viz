@@ -70,6 +70,7 @@ void SceneManager::setWeather(const WeatherParams &params) {
   // Propagate to all scenes (so they are ready when switched to)
   flowFieldScene_.setWeather(params);
   reactionDiffusionScene_.setWeather(params);
+  curlNoiseScene_.setWeather(params);
 }
 
 void SceneManager::switchScene(uint8_t scene_id) {
@@ -79,6 +80,8 @@ void SceneManager::switchScene(uint8_t scene_id) {
     active_scene_ = &flowFieldScene_;
   } else if (scene_id == 1) {
     active_scene_ = &reactionDiffusionScene_;
+  } else if (scene_id == 2) {
+    active_scene_ = &curlNoiseScene_;
   } else {
     active_scene_ = &flowFieldScene_; // Default
   }

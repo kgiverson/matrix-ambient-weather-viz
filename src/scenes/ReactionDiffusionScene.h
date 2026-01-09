@@ -42,6 +42,8 @@ private:
   uint8_t allowed_indices_[16];
   uint8_t allowed_count_;
   uint8_t last_temp_warm_;
+  float wind_x_;
+  float wind_y_;
   
   void step();
   float laplacian(int x, int y, const float *grid);

@@ -11,7 +11,7 @@ constexpr bool kUseTLS = true;
 constexpr char kHost[] = "api.open-meteo.com";
 constexpr uint16_t kPort = kUseTLS ? 443 : 80;
 constexpr bool kResolveHost = true;
-constexpr bool kUseHttpSanity = true;
+constexpr bool kUseHttpSanity = false;
 
 constexpr uint32_t kFetchIntervalMs = 10UL * 60UL * 1000UL;
 constexpr uint32_t kConnectTimeoutMs = 10000;
@@ -162,6 +162,29 @@ const WeatherClient::WeatherSample &WeatherClient::smoothed() const {
 
 bool WeatherClient::hasSample() const {
   return sample_.valid;
+}
+
+bool WeatherClient::isApproachingFetch(uint32_t now_ms, uint32_t lead_time_ms) const {
+  // If we are actively doing something, we are "fetching"
+  if (state_ != State::kIdle && state_ != State::kCoolDown && state_ != State::kDisconnected) {
+    return true;
+  }
+  
+  // If we are in CoolDown (waiting for next fetch), check time remaining
+  if (state_ == State::kCoolDown) {
+    // next_fetch_ms_ is in the future.
+    // If (next - now) < lead_time, we are close.
+    if (next_fetch_ms_ > now_ms) {
+      return (next_fetch_ms_ - now_ms) < lead_time_ms;
+    } else {
+      // Overdue, so yes
+      return true;
+    }
+  }
+
+  // If Disconnected, we might start anytime, so maybe? 
+  // But usually we transition to Connecting immediately.
+  return false;
 }
 
 void WeatherClient::transition(State next, uint32_t now_ms) {

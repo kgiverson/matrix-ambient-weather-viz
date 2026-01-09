@@ -7,6 +7,7 @@
 #include "Scene.h"
 #include "scenes/FlowFieldScene.h"
 #include "scenes/ReactionDiffusionScene.h"
+#include "scenes/CurlNoiseScene.h"
 
 class SceneManager {
 public:
@@ -29,7 +30,7 @@ public:
 
 private:
   static constexpr uint32_t kMagic = 0xA55A0001;
-  static constexpr uint8_t kSceneCount = 2;
+  static constexpr uint8_t kSceneCount = 3;
   static constexpr uint32_t kDebounceMs = 50;
 
   Adafruit_Protomatter &matrix_;
@@ -40,6 +41,7 @@ private:
   // Scenes
   FlowFieldScene flowFieldScene_;
   ReactionDiffusionScene reactionDiffusionScene_;
+  CurlNoiseScene curlNoiseScene_;
   Scene *active_scene_;
 
   // Button state

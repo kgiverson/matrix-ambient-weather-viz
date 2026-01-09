@@ -32,6 +32,9 @@ public:
   const WeatherSample &sample() const;
   const WeatherSample &smoothed() const;
   bool hasSample() const;
+  
+  // Returns true if a fetch is about to happen (within lead_time_ms) or is happening.
+  bool isApproachingFetch(uint32_t now_ms, uint32_t lead_time_ms = 2000) const;
 
 private:
   enum class State : uint8_t {
